@@ -1,3 +1,66 @@
+## 3.1.0-beta.1 (2018-06-29)
+* Merge pull request #557 for snapping pages (scrolling page by page)
+* merge pull request #618 for night mode
+* Merge pull request #566 for `OnLongTapListener`
+* Update PdfiumAndroid to 1.9.0, which uses `c++_shared` instead of `gnustl_static`
+* Update Gradle Plugin
+* Update compile SDK and support library to 26
+* Change minimum SDK to 14
+
+## 3.0.0-beta.5 (2018-01-06)
+* Fix issue with `Configurator#pages()` from #486
+* Fix `IllegalStateException` from #464
+* Fix not detecting links reported in #447
+
+## 3.0.0-beta.4 (2017-12-15)
+* Fix not loaded pages when using animated `PDFView#jumpTo()`
+* Fix NPE in `canScrollVertically()` and `canScrollHorizontally()`
+
+## 3.0.0-beta.3 (2017-11-18)
+* Fix bug preventing `OnErrorListener` from being called
+
+## 3.0.0-beta.2 (2017-11-15)
+* Fix rendering with maximum zoom
+* Improve fit policies
+* Update PdfiumAndroid to 1.8.1
+
+## 3.0.0-beta.1 (2017-11-12)
+* Add support for documents with different page sizes
+* Add support for links
+* Add support for defining page fit policy (fit width, height or both)
+* Update sample.pdf to contain different page sizes
+
+## 2.8.1 (2017-11-11)
+* Fix bug with rendering `PDFView` in Android Studio Layout Editor
+
+## 2.8.0 (2017-10-31)
+* Add handling of invalid pages, inspired by pull request #433. Exception on page opening crashed application until now,
+currently `OnPageErrorListener` set with `.onPageError()` is called. Invalid page color can be set using `.invalidPageColor()`
+* Implement `canScrollVertically()` and `canScrollHorizontally()` methods to work e.g. with `SwipeRefreshLayout`
+* Fix bug when `Configurator#load()` method was called before view has been measured, which resulted in empty canvas
+
+## 2.7.0 (2017-08-30)
+* Merge pull request by [owurman](https://github.com/owurman) with added OnTapListener
+* Merge bugfix by [lzwandnju](https://github.com/lzwandnju) to prevent `ArithmeticException: divide by zero`
+
+## 2.7.0-beta.1 (2017-07-05)
+* Updates PdfiumAndroid to 1.7.0 which reduces memory usage about twice and improves performance by using RGB 565 format (when not using `pdfView.useBestQuality(true)`)
+
+## 2.7.0-beta (2017-06-16)
+* Update PdfiumAndroid to 1.6.1, which fixed font rendering (issue #253)
+* Add `.spacing(int)` method to add spacing (in dp) between document pages
+* Fix drawing with `.onDraw(onDrawListener)`
+* Add `.onDrawAll(onDrawListener)` method to draw on all pages
+* Add small rendering improvements
+* Fix rendering when duplicated pages are passed to `.pages(..)`
+
+## 2.6.1 (2017-06-08)
+* Fix disappearing scroll handle
+
+## 2.6.0 (2017-06-04)
+* Fix fling on single-page documents
+* Greatly improve overall fling experience
+
 ## 2.5.1 (2017-04-08)
 * Temporarily downgrade PdfiumAndroid until #253 will be fixed
 

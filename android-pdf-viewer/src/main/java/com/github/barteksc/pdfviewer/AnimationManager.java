@@ -17,11 +17,12 @@ package com.github.barteksc.pdfviewer;
 
 import android.animation.Animator;
 import android.animation.Animator.AnimatorListener;
+import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.animation.ValueAnimator.AnimatorUpdateListener;
 import android.graphics.PointF;
 import android.view.animation.DecelerateInterpolator;
-import android.widget.Scroller;
+import android.widget.OverScroller;
 
 
 /**
@@ -36,20 +37,24 @@ class AnimationManager {
 
     private ValueAnimator animation;
 
-    private Scroller scroller;
+    private OverScroller scroller;
 
-    private ValueAnimator flingAnimation;
+    private boolean flinging = false;
+
+    private boolean pageFlinging = false;
 
     public AnimationManager(PDFView pdfView) {
         this.pdfView = pdfView;
-        scroller = new Scroller(pdfView.getContext(), null, true);
+        scroller = new OverScroller(pdfView.getContext());
     }
 
     public void startXAnimation(float xFrom, float xTo) {
         stopAll();
         animation = ValueAnimator.ofFloat(xFrom, xTo);
+        XAnimation xAnimation = new XAnimation();
         animation.setInterpolator(new DecelerateInterpolator());
-        animation.addUpdateListener(new XAnimation());
+        animation.addUpdateListener(xAnimation);
+        animation.addListener(xAnimation);
         animation.setDuration(400);
         animation.start();
     }
@@ -57,8 +62,10 @@ class AnimationManager {
     public void startYAnimation(float yFrom, float yTo) {
         stopAll();
         animation = ValueAnimator.ofFloat(yFrom, yTo);
+        YAnimation yAnimation = new YAnimation();
         animation.setInterpolator(new DecelerateInterpolator());
-        animation.addUpdateListener(new YAnimation());
+        animation.addUpdateListener(yAnimation);
+        animation.addListener(yAnimation);
         animation.setDuration(400);
         animation.start();
     }
@@ -76,13 +83,29 @@ class AnimationManager {
 
     public void startFlingAnimation(int startX, int startY, int velocityX, int velocityY, int minX, int maxX, int minY, int maxY) {
         stopAll();
-        flingAnimation = ValueAnimator.ofFloat(0, 1);
-        FlingAnimation flingAnim = new FlingAnimation();
-        flingAnimation.addUpdateListener(flingAnim);
-        flingAnimation.addListener(flingAnim);
+        flinging = true;
         scroller.fling(startX, startY, velocityX, velocityY, minX, maxX, minY, maxY);
-        flingAnimation.setDuration(scroller.getDuration());
-        flingAnimation.start();
+    }
+
+    public void startPageFlingAnimation(float targetOffset) {
+        if (pdfView.isSwipeVertical()) {
+            startYAnimation(pdfView.getCurrentYOffset(), targetOffset);
+        } else {
+            startXAnimation(pdfView.getCurrentXOffset(), targetOffset);
+        }
+        pageFlinging = true;
+    }
+
+    void computeFling() {
+        if (scroller.computeScrollOffset()) {
+            pdfView.moveTo(scroller.getCurrX(), scroller.getCurrY());
+            pdfView.loadPageByOffset();
+        } else if (flinging) { // fling finished
+            flinging = false;
+            pdfView.loadPages();
+            hideHandle();
+            pdfView.performPageSnap();
+        }
     }
 
     public void stopAll() {
@@ -94,31 +117,56 @@ class AnimationManager {
     }
 
     public void stopFling() {
-        if (flingAnimation != null) {
-            scroller.forceFinished(true);
-            flingAnimation.cancel();
-            flingAnimation = null;
-        }
+        flinging = false;
+        scroller.forceFinished(true);
     }
 
-    class XAnimation implements AnimatorUpdateListener {
+    public boolean isFlinging() {
+        return flinging || pageFlinging;
+    }
+
+    class XAnimation extends AnimatorListenerAdapter implements AnimatorUpdateListener {
 
         @Override
         public void onAnimationUpdate(ValueAnimator animation) {
             float offset = (Float) animation.getAnimatedValue();
             pdfView.moveTo(offset, pdfView.getCurrentYOffset());
+            pdfView.loadPageByOffset();
         }
 
+        @Override
+        public void onAnimationCancel(Animator animation) {
+            pdfView.loadPages();
+            pageFlinging = false;
+        }
+
+        @Override
+        public void onAnimationEnd(Animator animation) {
+            pdfView.loadPages();
+            pageFlinging = false;
+        }
     }
 
-    class YAnimation implements AnimatorUpdateListener {
+    class YAnimation extends AnimatorListenerAdapter implements AnimatorUpdateListener {
 
         @Override
         public void onAnimationUpdate(ValueAnimator animation) {
             float offset = (Float) animation.getAnimatedValue();
             pdfView.moveTo(pdfView.getCurrentXOffset(), offset);
+            pdfView.loadPageByOffset();
         }
 
+        @Override
+        public void onAnimationCancel(Animator animation) {
+            pdfView.loadPages();
+            pageFlinging = false;
+        }
+
+        @Override
+        public void onAnimationEnd(Animator animation) {
+            pdfView.loadPages();
+            pageFlinging = false;
+        }
     }
 
     class ZoomAnimation implements AnimatorUpdateListener, AnimatorListener {
@@ -145,6 +193,7 @@ class AnimationManager {
         public void onAnimationEnd(Animator animation) {
             pdfView.loadPages();
             hideHandle();
+            pdfView.performPageSnap();
         }
 
         @Override
@@ -155,38 +204,6 @@ class AnimationManager {
         public void onAnimationStart(Animator animation) {
         }
 
-    }
-
-    class FlingAnimation implements AnimatorUpdateListener, AnimatorListener {
-        @Override
-        public void onAnimationUpdate(ValueAnimator animation) {
-            if (!scroller.isFinished()) {
-                scroller.computeScrollOffset();
-                pdfView.moveTo(scroller.getCurrX(), scroller.getCurrY());
-                pdfView.loadPageByOffset();
-            }
-        }
-
-        @Override
-        public void onAnimationStart(Animator animation) {
-
-        }
-
-        @Override
-        public void onAnimationEnd(Animator animation) {
-            pdfView.loadPages();
-            hideHandle();
-        }
-
-        @Override
-        public void onAnimationCancel(Animator animation) {
-
-        }
-
-        @Override
-        public void onAnimationRepeat(Animator animation) {
-
-        }
     }
 
     private void hideHandle() {

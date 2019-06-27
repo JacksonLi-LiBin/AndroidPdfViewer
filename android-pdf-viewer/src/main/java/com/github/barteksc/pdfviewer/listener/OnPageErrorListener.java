@@ -15,11 +15,11 @@
  */
 package com.github.barteksc.pdfviewer.listener;
 
-public interface OnRenderListener {
+public interface OnPageErrorListener {
 
     /**
-     * Called only once, when document is rendered
-     * @param nbPages number of pages
+     * Called if error occurred while loading PDF page
+     * @param t Throwable with error
      */
-    void onInitiallyRendered(int nbPages);
+    void onPageError(int page, Throwable t);
 }

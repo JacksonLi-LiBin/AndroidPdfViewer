@@ -15,11 +15,19 @@
  */
 package com.github.barteksc.pdfviewer.listener;
 
-public interface OnRenderListener {
+import android.view.MotionEvent;
+
+/**
+ * Implement this interface to receive events from PDFView
+ * when view has been touched
+ */
+public interface OnTapListener {
 
     /**
-     * Called only once, when document is rendered
-     * @param nbPages number of pages
+     * Called when the user has a tap gesture, before processing scroll handle toggling
+     *
+     * @param e MotionEvent that registered as a confirmed single tap
+     * @return true if the single tap was handled, false to toggle scroll handle
      */
-    void onInitiallyRendered(int nbPages);
+    boolean onTap(MotionEvent e);
 }

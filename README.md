@@ -10,33 +10,40 @@ Library for displaying PDF documents on Android, with `animations`, `gestures`, 
 It is based on [PdfiumAndroid](https://github.com/barteksc/PdfiumAndroid) for decoding PDF files. Works on API 11 (Android 3.0) and higher.
 Licensed under Apache License 2.0.
 
-## What's new in 2.5.0?
-* Update PdfiumAndroid to 1.6.0, which is based on newest Pdfium from Android 7.1.1. It should fix many rendering and fonts problems
-* Add method `pdfView.fitToWidth()`, which called in `OnRenderListener.onInitiallyRendered()` will fit document to width of the screen (inspired by [1stmetro](https://github.com/1stmetro))
-* Add change from pull request by [isanwenyu](https://github.com/isanwenyu) to get rid of rare IllegalArgumentException while rendering
-* Add `OnRenderListener`, that will be called once, right before document is drawn on the screen
-* Add `Configurator.enableAntialiasing()` to improve rendering on low-res screen a little bit (as suggested by [majkimester](majkimester))
-* Modify engine to not block UI when big documents are loaded
-* Change `Constants` interface and inner interfaces to static public classes, to allow modifying core config values
+## What's new in 3.1.0-beta.1?
+* Merge pull request #557 for snapping pages (scrolling page by page)
+* merge pull request #618 for night mode
+* Merge pull request #566 for `OnLongTapListener`
+* Update PdfiumAndroid to 1.9.0, which uses `c++_shared` instead of `gnustl_static`
+* Update Gradle Plugin
+* Update compile SDK and support library to 26
+* Change minimum SDK to 14
 
-Version 2.5.1 temporarily downgrades PdfiumAndroid until #253 will be fixed
-
-## Changes in 2.0 API
-* `Configurator#defaultPage(int)` and `PDFView#jumpTo(int)` now require page index (i.e. starting from 0)
-* `OnPageChangeListener#onPageChanged(int, int)` is called with page index (i.e. starting from 0)
-* removed scrollbar
-* added scroll handle as a replacement for scrollbar, use with `Configurator#scrollHandle()`
-* added `OnPageScrollListener` listener due to continuous scroll, register with `Configurator#onPageScroll()`
-* default scroll direction is vertical, so `Configurator#swipeVertical()` was changed to `Configurator#swipeHorizontal()`
-* removed minimap and mask configuration
+## Changes in 3.0 API
+* Replaced `Contants.PRELOAD_COUNT` with `PRELOAD_OFFSET`
+* Removed `PDFView#fitToWidth()` (variant without arguments)
+* Removed `Configurator#invalidPageColor(int)` method as invalid pages are not rendered
+* Removed page size parameters from `OnRenderListener#onInitiallyRendered(int)` method, as document may have different page sizes
+* Removed `PDFView#setSwipeVertical()` method
 
 ## Installation
 
 Add to _build.gradle_:
 
-`compile 'com.github.barteksc:android-pdf-viewer:2.5.1'`
+`compile 'com.github.barteksc:android-pdf-viewer:3.1.0-beta.1'`
+
+or if you want to use more stable version:
+ 
+`compile 'com.github.barteksc:android-pdf-viewer:2.8.2'`
 
 Library is available in jcenter repository, probably it'll be in Maven Central soon.
+
+## ProGuard
+If you are using ProGuard, add following rule to proguard config file:
+
+```proguard
+-keep class com.shockwave.**
+```
 
 ## Include PDFView in your layout
 
@@ -67,16 +74,31 @@ pdfView.fromAsset(String)
     .swipeHorizontal(false)
     .enableDoubletap(true)
     .defaultPage(0)
-    .onDraw(onDrawListener) // allows to draw something on a provided canvas, above the current page
+    // allows to draw something on the current page, usually visible in the middle of the screen
+    .onDraw(onDrawListener)
+    // allows to draw something on all pages, separately for every page. Called only for visible pages
+    .onDrawAll(onDrawListener)
     .onLoad(onLoadCompleteListener) // called after document is loaded and starts to be rendered
     .onPageChange(onPageChangeListener)
     .onPageScroll(onPageScrollListener)
     .onError(onErrorListener)
+    .onPageError(onPageErrorListener)
     .onRender(onRenderListener) // called after document is rendered for the first time
+    // called on single tap, return true if handled, false to toggle scroll handle visibility
+    .onTap(onTapListener)
+    .onLongPress(onLongPressListener)
     .enableAnnotationRendering(false) // render annotations (such as comments, colors or forms)
     .password(null)
     .scrollHandle(null)
     .enableAntialiasing(true) // improve rendering a little bit on low-res screens
+    // spacing between pages in dp. To define spacing color, set view background
+    .spacing(0)
+    .autoSpacing(false) // add dynamic spacing to fit each page on its own on the screen
+    .linkHandler(DefaultLinkHandler)
+    .pageFitPolicy(FitPolicy.WIDTH)
+    .pageSnap(true) // snap pages to screen boundaries
+    .pageFling(false) // make a fling change only a single page like ViewPager
+    .nightMode(false) // toggle night mode
     .load();
 ```
 
@@ -115,6 +137,25 @@ pdfView.fromAsset(String)
 ```
 Custom providers may be used with `pdfView.fromSource(DocumentSource)` method.
 
+## Links
+Version 3.0.0 introduced support for links in PDF documents. By default, **DefaultLinkHandler**
+is used and clicking on link that references page in same document causes jump to destination page
+and clicking on link that targets some URI causes opening it in default application.
+
+You can also create custom link handlers, just implement **LinkHandler** interface and set it using
+`Configurator#linkHandler(LinkHandler)` method. Take a look at [DefaultLinkHandler](https://github.com/barteksc/AndroidPdfViewer/tree/master/android-pdf-viewer/src/main/java/com/github/barteksc/pdfviewer/link/DefaultLinkHandler.java)
+source to implement custom behavior.
+
+## Pages fit policy
+Since version 3.0.0, library supports fitting pages into the screen in 3 modes:
+* WIDTH - width of widest page is equal to screen width
+* HEIGHT - height of highest page is equal to screen height
+* BOTH - based on widest and highest pages, every page is scaled to be fully visible on screen
+
+Apart from selected policy, every page is scaled to have size relative to other pages.
+
+Fit policy can be set using `Configurator#pageFitPolicy(FitPolicy)`. Default policy is **WIDTH**.
+
 ## Additional options
 
 ### Bitmap quality
@@ -152,14 +193,23 @@ data cleanup and caching, so creating such module will probably end up as new li
 You have to store current page number and then set it with `pdfView.defaultPage(page)`, refer to sample app
 
 ### How can I fit document to screen width (eg. on orientation change)?
-Use this code snippet:
+Use `FitPolicy.WIDTH` policy or add following snippet when you want to fit desired page in document with different page sizes:
 ``` java
 Configurator.onRender(new OnRenderListener() {
     @Override
     public void onInitiallyRendered(int pages, float pageWidth, float pageHeight) {
-        pdfView.fitToWidth(); // optionally pass page number
+        pdfView.fitToWidth(pageIndex);
     }
 });
+```
+
+### How can I scroll through single pages like a ViewPager?
+You can use a combination of the following settings to get scroll and fling behaviour similar to a ViewPager:
+``` java
+    .swipeHorizontal(true)
+    .pageSnap(true)
+    .autoSpacing(true)
+    .pageFling(true)
 ```
 
 ## One more thing
@@ -169,7 +219,7 @@ If you have any suggestions on making this lib better, write me, create issue or
 
 Created with the help of android-pdfview by [Joan Zapata](http://joanzapata.com/)
 ```
-Copyright 2016 Bartosz Schiller
+Copyright 2017 Bartosz Schiller
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
